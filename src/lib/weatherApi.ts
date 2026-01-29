@@ -155,6 +155,54 @@ export async function fetchCityWeather(
 }
 
 /**
+ * 城市查询结果类型
+ */
+export interface CityLookupResult {
+  location: {
+    id: string // 城市代码
+    name: string
+    country: string
+    path: string // 完整路径，如 "北京,北京,中国"
+    lat: string
+    lon: string
+  }
+}
+
+/**
+ * 查询城市（支持城市名称、拼音、IP）
+ * API 文档: https://dev.qweather.com/docs/api/geoapi/city-lookup/
+ */
+export async function lookupCity(cityName: string): Promise<CityLookupResult[] | null> {
+  if (!QWEATHER_API_KEY || QWEATHER_API_KEY === 'your_qweather_api_key_here') {
+    console.warn('未配置和风天气 API Key，无法查询城市')
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${QWEATHER_API_BASE}/city/lookup?key=${QWEATHER_API_KEY}&location=${encodeURIComponent(cityName)}`
+    )
+
+    if (!response.ok) {
+      console.error('城市查询 API 请求失败:', response.status, response.statusText)
+      return null
+    }
+
+    const data = await response.json()
+
+    if (data.code !== '200') {
+      console.error('城市查询 API 返回错误:', data.code)
+      return null
+    }
+
+    return data.location || []
+  } catch (error) {
+    console.error('查询城市失败:', error)
+    return null
+  }
+}
+
+/**
  * 检查 API Key 是否有效
  */
 export async function validateApiKey(apiKey: string): Promise<boolean> {
