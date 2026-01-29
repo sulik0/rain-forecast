@@ -1,8 +1,10 @@
 import type { WeatherData } from '@/types'
 
 // 和风天气 API 配置
-const QWEATHER_API_BASE = 'https://devapi.qweather.com/v7'
+const QWEATHER_API_HOST = import.meta.env.VITE_QWEATHER_API_HOST || 'devapi.qweather.com'
+const QWEATHER_API_VERSION = import.meta.env.VITE_QWEATHER_API_VERSION || 'v7'
 const QWEATHER_API_KEY = import.meta.env.VITE_QWEATHER_API_KEY
+const QWEATHER_API_BASE = `https://${QWEATHER_API_HOST}/${QWEATHER_API_VERSION}`
 
 // 和风天气 API 响应类型
 interface QWeatherResponse {
