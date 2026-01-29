@@ -7,6 +7,7 @@ import { CitiesPage } from '@/pages/CitiesPage'
 import { DataSourcesPage } from '@/pages/DataSourcesPage'
 import { NotificationPage } from '@/pages/NotificationPage'
 import { HistoryPage } from '@/pages/HistoryPage'
+import { useScheduler } from '@/hooks/useScheduler'
 import {
   useCities,
   useDataSources,
@@ -17,17 +18,29 @@ import {
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard')
-  
+
   const { cities, addCity, removeCity } = useCities()
   const { dataSources, updateSource, normalizeWeights } = useDataSources()
   const { config, updateConfig, updateSchedule } = useNotification()
   const { alerts, clearAlerts } = useAlertHistory()
-  const { 
-    weatherData, 
-    loading, 
-    fetchWeatherData, 
-    calculateWeightedProbability 
+  const {
+    weatherData,
+    loading,
+    fetchWeatherData,
+    calculateWeightedProbability
   } = useWeatherData(cities, dataSources)
+
+  // 定时通知调度器
+  const {
+    nextNotificationTime,
+    timeRemaining,
+    lastCheckTime,
+  } = useScheduler({
+    cities,
+    weatherDataMap: weatherData,
+    config,
+    calculateWeightedProbability,
+  })
 
   const renderPage = () => {
     switch (currentPage) {
@@ -39,6 +52,7 @@ function AppContent() {
             weatherData={weatherData}
             threshold={config.threshold}
             loading={loading}
+            notificationConfig={config}
             onRefresh={fetchWeatherData}
             calculateWeightedProbability={calculateWeightedProbability}
           />
@@ -65,6 +79,9 @@ function AppContent() {
             config={config}
             onUpdateConfig={updateConfig}
             onUpdateSchedule={updateSchedule}
+            nextNotificationTime={nextNotificationTime}
+            timeRemaining={timeRemaining}
+            lastCheckTime={lastCheckTime}
           />
         )
       case 'history':

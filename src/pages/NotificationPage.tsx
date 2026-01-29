@@ -1,6 +1,6 @@
 import type { NotificationConfig, NotificationSchedule } from '@/types'
 import { cn } from '@/lib/utils'
-import { Bell, Clock, MessageSquare, AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
+import { Bell, Clock, MessageSquare, AlertCircle, ExternalLink, Loader2, CheckCircle } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import { sendTestNotification } from '@/lib/notification'
 import { useState } from 'react'
@@ -9,12 +9,18 @@ interface NotificationPageProps {
   config: NotificationConfig
   onUpdateConfig: (updates: Partial<NotificationConfig>) => void
   onUpdateSchedule: (id: string, updates: Partial<NotificationSchedule>) => void
+  nextNotificationTime?: Date | null
+  timeRemaining?: string
+  lastCheckTime?: Date | null
 }
 
 export function NotificationPage({
   config,
   onUpdateConfig,
-  onUpdateSchedule
+  onUpdateSchedule,
+  nextNotificationTime,
+  timeRemaining,
+  lastCheckTime
 }: NotificationPageProps) {
   const { showToast } = useToast()
   const [sending, setSending] = useState(false)
@@ -103,6 +109,55 @@ export function NotificationPage({
           </button>
         </div>
       </div>
+
+      {/* 定时器状态 */}
+      {config.enabled && (
+        <div className="card mb-8 border-l-4 border-l-primary">
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 text-primary-light mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground mb-2">定时器运行状态</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {nextNotificationTime && (
+                  <div className="bg-muted/30 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground mb-1">下次通知时间</p>
+                    <p className="text-foreground font-medium">
+                      {nextNotificationTime.toLocaleString('zh-CN', {
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                    {timeRemaining && (
+                      <p className="text-sm text-primary-light mt-1">
+                        {timeRemaining}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {lastCheckTime && (
+                  <div className="bg-muted/30 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground mb-1">最后检查时间</p>
+                    <p className="text-foreground font-medium">
+                      {lastCheckTime.toLocaleString('zh-CN', {
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                    <p className="text-sm text-success flex items-center gap-1 mt-1">
+                      <CheckCircle className="w-3 h-3" />
+                      定时器运行中
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 预警阈值 */}
       <div className="card mb-8">

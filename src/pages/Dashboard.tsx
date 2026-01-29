@@ -1,8 +1,10 @@
-import { useEffect } from 'react'
-import type { City, DataSource, WeatherData } from '@/types'
+import { useEffect, useState } from 'react'
+import type { City, DataSource, WeatherData, NotificationConfig } from '@/types'
 import { WeatherCard } from '@/components/WeatherCard'
 import { formatDate, formatTime } from '@/lib/utils'
-import { RefreshCw, CloudRain, Sun, AlertTriangle } from 'lucide-react'
+import { RefreshCw, CloudRain, Sun, AlertTriangle, Send } from 'lucide-react'
+import { sendRainAlertNotification } from '@/lib/notification'
+import { useToast } from '@/hooks/useToast'
 
 interface DashboardProps {
   cities: City[]
@@ -10,6 +12,7 @@ interface DashboardProps {
   weatherData: Map<string, WeatherData[]>
   threshold: number
   loading: boolean
+  notificationConfig: NotificationConfig
   onRefresh: () => void
   calculateWeightedProbability: (cityId: string) => number
 }
@@ -20,11 +23,14 @@ export function Dashboard({
   weatherData,
   threshold,
   loading,
+  notificationConfig,
   onRefresh,
   calculateWeightedProbability
 }: DashboardProps) {
+  const { showToast } = useToast()
+  const [sendingAlerts, setSendingAlerts] = useState(false)
   const now = new Date()
-  
+
   // 自动刷新
   useEffect(() => {
     onRefresh()
@@ -36,6 +42,66 @@ export function Dashboard({
     return prob >= threshold
   })
 
+  // 发送降雨预警通知
+  const handleSendAlerts = async () => {
+    if (!notificationConfig.wechatPushToken) {
+      showToast('请先在「通知设置」中配置微信推送 Token', 'warning')
+      return
+    }
+
+    if (!notificationConfig.enabled) {
+      showToast('请先在「通知设置」中启用通知功能', 'warning')
+      return
+    }
+
+    setSendingAlerts(true)
+
+    try {
+      let successCount = 0
+      let failCount = 0
+
+      for (const city of alertCities) {
+        const prob = calculateWeightedProbability(city.id)
+        const cityWeatherData = weatherData.get(city.id)
+
+        if (cityWeatherData && cityWeatherData.length > 0) {
+          // 获取主要数据源的天气信息
+          const primaryWeather = cityWeatherData[0]?.weather || '未知'
+
+          const result = await sendRainAlertNotification(
+            notificationConfig.wechatPushToken,
+            city.name,
+            prob,
+            threshold,
+            primaryWeather
+          )
+
+          if (result.success) {
+            successCount++
+          } else {
+            failCount++
+          }
+
+          // 添加延迟，避免发送过快
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+
+      if (alertCities.length === 0) {
+        showToast('当前没有触发降雨预警的城市', 'info')
+      } else if (successCount === alertCities.length) {
+        showToast(`✅ 成功发送 ${successCount} 条预警通知`, 'success')
+      } else {
+        showToast(`⚠️ 发送 ${successCount} 条成功，${failCount} 条失败`, 'warning')
+      }
+    } catch (error) {
+      console.error('发送预警通知出错:', error)
+      showToast('❌ 发送失败：网络错误', 'danger')
+    } finally {
+      setSendingAlerts(false)
+    }
+  }
+
   return (
     <div className="p-8 animate-fade-in">
       {/* 头部 */}
@@ -46,14 +112,26 @@ export function Dashboard({
             {formatDate(now)} · 最后更新: {formatTime(now)}
           </p>
         </div>
-        <button
-          onClick={onRefresh}
-          disabled={loading}
-          className="btn-primary"
-        >
-          <RefreshCw className={loading ? 'animate-spin w-4 h-4' : 'w-4 h-4'} />
-          刷新数据
-        </button>
+        <div className="flex gap-3">
+          {alertCities.length > 0 && (
+            <button
+              onClick={handleSendAlerts}
+              disabled={sendingAlerts || loading}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Send className="w-4 h-4" />
+              {sendingAlerts ? '发送中...' : `发送预警通知 (${alertCities.length})`}
+            </button>
+          )}
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="btn-primary"
+          >
+            <RefreshCw className={loading ? 'animate-spin w-4 h-4' : 'w-4 h-4'} />
+            刷新数据
+          </button>
+        </div>
       </div>
 
       {/* 统计卡片 */}
