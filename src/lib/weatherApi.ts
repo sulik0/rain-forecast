@@ -39,6 +39,63 @@ interface QWeatherNowResponse extends QWeatherResponse {
 }
 
 /**
+ * 指数退避算法 - 处理速率限制
+ * @param errorCount 错误次数
+ * @returns 等待毫秒数
+ */
+function exponentialBackoff(errorCount: number): number {
+  const maxWait = 10000 // 最大等待 10 秒
+  const baseWait = Math.pow(2, errorCount) * 1000 // 2^c 秒
+  const jitter = Math.random() * 1000 // 随机抖动，避免冲突
+  return Math.min(baseWait + jitter, maxWait)
+}
+
+/**
+ * 带重试的请求函数
+ * @param url 请求 URL
+ * @param options 请求选项
+ * @param maxRetries 最大重试次数
+ * @returns 响应
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 3
+): Promise<Response> {
+  let retryCount = 0
+
+  while (retryCount <= maxRetries) {
+    try {
+      const response = await fetch(url, options)
+
+      // 429 错误（速率限制）需要指数退避重试
+      if (response.status === 429) {
+        if (retryCount < maxRetries) {
+          const waitTime = exponentialBackoff(retryCount)
+          console.warn(`速率限制，等待 ${waitTime}ms 后重试...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+          retryCount++
+          continue
+        }
+      }
+
+      return response
+    } catch (error) {
+      if (retryCount < maxRetries) {
+        const waitTime = exponentialBackoff(retryCount)
+        console.warn(`请求失败，等待 ${waitTime}ms 后重试...`, error)
+        await new Promise(resolve => setTimeout(resolve, waitTime))
+        retryCount++
+        continue
+      }
+      throw error
+    }
+  }
+
+  throw new Error('达到最大重试次数')
+}
+
+/**
  * 获取城市天气预报（3天）
  * API 文档: https://dev.qweather.com/docs/api/weather/weather-daily-forecast/
  */
@@ -46,8 +103,14 @@ export async function getWeatherForecast(
   cityCode: string
 ): Promise<QWeatherDailyResponse | null> {
   try {
-    const response = await fetch(
-      `${QWEATHER_API_BASE}/weather/3d?key=${QWEATHER_API_KEY}&location=${cityCode}`
+    const response = await fetchWithRetry(
+      `${QWEATHER_API_BASE}/weather/3d?location=${encodeURIComponent(cityCode)}`,
+      {
+        headers: {
+          'X-QW-Api-Key': QWEATHER_API_KEY,
+          'Accept-Encoding': 'gzip',
+        },
+      }
     )
 
     if (!response.ok) {
@@ -78,8 +141,14 @@ export async function getWeatherNow(
   cityCode: string
 ): Promise<QWeatherNowResponse | null> {
   try {
-    const response = await fetch(
-      `${QWEATHER_API_BASE}/weather/now?key=${QWEATHER_API_KEY}&location=${cityCode}`
+    const response = await fetchWithRetry(
+      `${QWEATHER_API_BASE}/weather/now?location=${encodeURIComponent(cityCode)}`,
+      {
+        headers: {
+          'X-QW-Api-Key': QWEATHER_API_KEY,
+          'Accept-Encoding': 'gzip',
+        },
+      }
     )
 
     if (!response.ok) {
@@ -181,8 +250,14 @@ export async function lookupCity(cityName: string): Promise<CityLookupResult[] |
   }
 
   try {
-    const response = await fetch(
-      `${QWEATHER_API_BASE}/city/lookup?key=${QWEATHER_API_KEY}&location=${encodeURIComponent(cityName)}`
+    const response = await fetchWithRetry(
+      `${QWEATHER_API_BASE}/city/lookup?location=${encodeURIComponent(cityName)}`,
+      {
+        headers: {
+          'X-QW-Api-Key': QWEATHER_API_KEY,
+          'Accept-Encoding': 'gzip',
+        },
+      }
     )
 
     if (!response.ok) {
@@ -209,8 +284,14 @@ export async function lookupCity(cityName: string): Promise<CityLookupResult[] |
  */
 export async function validateApiKey(apiKey: string): Promise<boolean> {
   try {
-    const response = await fetch(
-      `${QWEATHER_API_BASE}/weather/${import.meta.env.VITE_QWEATHER_API_VERSION || 'v7'}/now?key=${apiKey}&location=101010100`
+    const response = await fetchWithRetry(
+      `${QWEATHER_API_BASE}/weather/now?location=101010100`,
+      {
+        headers: {
+          'X-QW-Api-Key': apiKey,
+          'Accept-Encoding': 'gzip',
+        },
+      }
     )
 
     if (!response.ok) {
