@@ -71,6 +71,36 @@
 - Node.js >= 18.0.0
 - npm >= 9.0.0 或 pnpm >= 8.0.0
 
+### 配置天气 API
+
+系统使用和风天气 API 获取真实天气数据。
+
+1. **获取 API Key**
+
+   访问 [和风天气开发者平台](https://dev.qweather.com/) 注册并创建应用，获取 API Key。
+
+   详细的注册和配置步骤请参考：[API 配置指南](docs/API_SETUP.md)
+
+2. **配置环境变量**
+
+   ```bash
+   # 复制环境变量模板
+   cp .env.example .env
+
+   # 编辑 .env 文件，替换你的 API Key
+   VITE_QWEATHER_API_KEY=your_actual_api_key_here
+   ```
+
+3. **启动应用**
+
+   ```bash
+   npm run dev
+   ```
+
+   打开 http://localhost:5173，点击「刷新数据」测试 API 连接。
+
+> **注意**：如果没有配置 API Key，系统会使用模拟数据，但不影响功能演示。
+
 ### 安装依赖
 
 ```bash
@@ -144,8 +174,9 @@ rain-forecast/
 │   ├── hooks/            # 自定义 Hooks
 │   │   ├── useToast.tsx   # Toast 通知 Hook
 │   │   └── useStore.ts    # 状态管理 Hooks
-│   ├── lib/              # 工具函数
-│   │   └── utils.ts       # 通用工具函数
+│   ├── lib/              # 工具函数和 API 服务
+│   │   ├── utils.ts       # 通用工具函数
+│   │   └── weatherApi.ts  # 和风天气 API 封装
 │   ├── pages/            # 页面组件
 │   │   ├── Dashboard.tsx      # 仪表盘页面
 │   │   ├── CitiesPage.tsx     # 城市管理页面
@@ -157,7 +188,11 @@ rain-forecast/
 │   ├── App.tsx           # 应用主组件
 │   ├── main.tsx          # 应用入口
 │   └── index.css         # 全局样式
+├── docs/                 # 文档目录
+│   └── API_SETUP.md      # API 配置指南
 ├── index.html            # HTML 模板
+├── .env.example          # 环境变量模板
+├── .gitignore            # Git 忽略配置
 ├── package.json          # 项目配置
 ├── tsconfig.json         # TypeScript 配置
 ├── vite.config.ts        # Vite 配置
@@ -234,7 +269,7 @@ rain-forecast/
 
 ## 路线图
 
-- [ ] 接入真实天气 API（目前使用模拟数据）
+- [x] 接入真实天气 API（和风天气）
 - [ ] 支持更多数据源（AccuWeather、Weather.com 等）
 - [ ] 添加邮件通知功能
 - [ ] 添加短信通知功能
