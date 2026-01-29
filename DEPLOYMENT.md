@@ -374,4 +374,4 @@ coscli sync dist/ cos://your-bucket-name/ --delete
 
 - [阿里云 OSS 文档](https://help.aliyun.com/product/31815.html)
 - [腾讯云 COS 文档](https://cloud.tencent.com/document/product/436)
-- [和风天气 API 文档](https://dev.qweather.com/docs/)
+- [和风天气 API 文档](https://dev.qweather.com/docs/)f

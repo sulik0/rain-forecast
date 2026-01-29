@@ -45,7 +45,7 @@ export async function getWeatherForecast(
 ): Promise<QWeatherDailyResponse | null> {
   try {
     const response = await fetch(
-      `${QWEATHER_API_BASE}/weather/${cityCode}3d?key=${QWEATHER_API_KEY}`
+      `${QWEATHER_API_BASE}/weather/3d?key=${QWEATHER_API_KEY}&location=${cityCode}`
     )
 
     if (!response.ok) {

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 诊断工具</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        .card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #0f3460;
+        }
+        h1 { color: #4facfe; }
+        h2 { color: #00f2fe; margin-top: 0; }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .success { background: #1a472a; border-left: 4px solid #00d26a; }
+        .error { background: #4a1a1a; border-left: 4px solid #ff4757; }
+        .warning { background: #4a3a1a; border-left: 4px solid #ffa502; }
+        .info { background: #1a2a4a; border-left: 4px solid #4facfe; }
+        button {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border: none;
+            padding: 12px 24px;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { opacity: 0.9; }
+        pre {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .url-box {
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 和风天气 API 诊断工具</h1>
+
+    <div class="card">
+        <h2>配置信息</h2>
+        <p><strong>API Key:</strong> <code id="apiKey"></code></p>
+        <p><strong>当前域名状态:</strong> <span id="domainStatus">检测中...</span></p>
+    </div>
+
+    <div class="card info">
+        <h3>📋 和风天气 API 端点说明</h3>
+        <p><strong>免费版开发版 API:</strong></p>
+        <div class="url-box">https://devapi.qweather.com/v7/...</div>
+        <p><strong>商业版 API:</strong></p>
+        <div class="url-box">https://api.qweather.com/v7/...</div>
+        <p class="warning">⚠️ 如果你使用的是免费版，必须使用 devapi.qweather.com</p>
+    </div>
+
+    <div class="card">
+        <h2>诊断测试</h2>
+        <button onclick="testAllAPIs()">🚀 运行完整诊断</button>
+        <button onclick="testFreeVersion()">测试免费版端点</button>
+        <button onclick="testPaidVersion()">测试商业版端点</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const API_KEY = 'a3de64eb28f5452ca64bcfbcf51d9935';
+        const CITY_CODE = '101010100'; // 北京
+
+        function addResult(title, content, type = 'info', url = '') {
+            const resultsDiv = document.getElementById('results');
+            const card = document.createElement('div');
+            card.className = 'card';
+            let html = `
+                <div class="status ${type}">
+                    <h3>${title}</h3>
+                </div>
+            `;
+            if (url) {
+                html += `<div class="url-box">URL: ${url}</div>`;
+            }
+            html += `<pre>${JSON.stringify(content, null, 2)}</pre>`;
+            card.innerHTML = html;
+            resultsDiv.insertBefore(card, resultsDiv.firstChild);
+        }
+
+        async function testEndpoint(apiBase, endpointName) {
+            const urls = {
+                '实时天气': `${apiBase}/weather/now?key=${API_KEY}&location=${CITY_CODE}`,
+                '3天预报': `${apiBase}/weather/3d?key=${API_KEY}&location=${CITY_CODE}`,
+                '7天预报': `${apiBase}/weather/7d?key=${API_KEY}&location=${CITY_CODE}`,
+            };
+
+            const results = {};
+
+            for (const [name, url] of Object.entries(urls)) {
+                try {
+                    console.log(`测试 ${endpointName} - ${name}:`, url);
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    results[name] = {
+                        status: response.status,
+                        success: response.ok,
+                        code: data.code,
+                        message: getMessageByCode(data.code)
+                    };
+
+                    if (response.ok && data.code === '200') {
+                        results[name].data = data;
+                    }
+                } catch (error) {
+                    results[name] = {
+                        error: error.message
+                    };
+                }
+            }
+
+            return results;
+        }
+
+        function getMessageByCode(code) {
+            const messages = {
+                '200': '成功',
+                '204': '请求成功，但无数据',
+                '400': '请求错误',
+                '401': '认证失败，API Key 错误',
+                '402': '超过配额限制',
+                '403': '无权限访问',
+                '404': '请求的资源不存在',
+                '500': '服务器错误'
+            };
+            return messages[code] || '未知错误';
+        }
+
+        async function testFreeVersion() {
+            const results = await testEndpoint('https://devapi.qweather.com/v7', '免费版');
+            addResult('🆓 免费版 API 测试结果', results, 'info');
+        }
+
+        async function testPaidVersion() {
+            const results = await testEndpoint('https://api.qweather.com/v7', '商业版');
+            addResult('💰 商业版 API 测试结果', results, 'info');
+        }
+
+        async function testAllAPIs() {
+            document.getElementById('results').innerHTML = '';
+
+            addResult('🔍 开始诊断', {
+                message: '正在测试所有 API 端点...',
+                api_key: API_KEY.substring(0, 8) + '...',
+                note: '请查看浏览器控制台获取详细信息'
+            }, 'info');
+
+            // 测试免费版
+            const freeResults = await testEndpoint('https://devapi.qweather.com/v7', '免费版');
+
+            // 测试商业版
+            const paidResults = await testEndpoint('https://api.qweather.com/v7', '商业版');
+
+            // 分析结果
+            let recommendation = '';
+            let successCount = 0;
+
+            // 检查免费版
+            const freeNow = freeResults['实时天气'];
+            const free3d = freeResults['3天预报'];
+
+            if (freeNow && freeNow.success && freeNow.code === '200') {
+                successCount++;
+                recommendation += '\n✅ 免费版实时天气 API 可用';
+            }
+
+            if (free3d && free3d.success && free3d.code === '200') {
+                successCount++;
+                recommendation += '\n✅ 免费版3天预报 API 可用';
+            }
+
+            // 检查商业版
+            const paidNow = paidResults['实时天气'];
+            const paid3d = paidResults['3天预报'];
+
+            if (paidNow && paidNow.success && paidNow.code === '200') {
+                successCount++;
+                recommendation += '\n✅ 商业版实时天气 API 可用';
+            }
+
+            if (paid3d && paid3d.success && paid3d.code === '200') {
+                successCount++;
+                recommendation += '\n✅ 商业版3天预报 API 可用';
+            }
+
+            // 错误诊断
+            if (freeNow && freeNow.code === '403') {
+                recommendation += '\n\n❌ 免费版返回 403 - 可能原因：';
+                recommendation += '\n   • API Key 类型错误（商业版 Key 用到了免费版端点）';
+                recommendation += '\n   • API Key 无效或过期';
+                recommendation += '\n   • 需要在控制台添加应用域名';
+            }
+
+            if (freeNow && freeNow.code === '402') {
+                recommendation += '\n\n⚠️ 超过免费配额限制';
+                recommendation += '\n   • 免费版每天 1,000 次请求';
+                recommendation += '\n   • 请等待次日重置或升级套餐';
+            }
+
+            addResult('📊 诊断结果', {
+                总测试项: 6,
+                成功项: successCount,
+                建议: recommendation.trim(),
+                免费版实时天气: freeNow,
+                免费版3天预报: free3d,
+                商业版实时天气: paidNow,
+                商业版3天预报: paid3d
+            }, successCount > 0 ? 'success' : 'error');
+        }
+
+        // 页面加载时显示 API Key
+        window.onload = () => {
+            document.getElementById('apiKey').textContent = API_KEY ? `${API_KEY.substring(0, 8)}...` : '未配置';
+
+            // 检查当前页面协议
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            document.getElementById('domainStatus').textContent = `${protocol}//${hostname}`;
+        };
+    </script>
+</body>
+</html>
