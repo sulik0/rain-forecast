@@ -45,7 +45,7 @@ export async function getWeatherForecast(
 ): Promise<QWeatherDailyResponse | null> {
   try {
     const response = await fetch(
-      `${QWEATHER_API_BASE}/weather/${import.meta.env.VITE_QWEATHER_API_VERSION || 'v7'}/weather/${cityCode}3d?key=${QWEATHER_API_KEY}`
+      `${QWEATHER_API_BASE}/weather/${cityCode}3d?key=${QWEATHER_API_KEY}`
     )
 
     if (!response.ok) {
@@ -77,7 +77,7 @@ export async function getWeatherNow(
 ): Promise<QWeatherNowResponse | null> {
   try {
     const response = await fetch(
-      `${QWEATHER_API_BASE}/weather/${import.meta.env.VITE_QWEATHER_API_VERSION || 'v7'}/now?key=${QWEATHER_API_KEY}&location=${cityCode}`
+      `${QWEATHER_API_BASE}/weather/now?key=${QWEATHER_API_KEY}&location=${cityCode}`
     )
 
     if (!response.ok) {
