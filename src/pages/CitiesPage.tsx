@@ -192,7 +192,6 @@ export function CitiesPage({ cities, onAddCity, onRemoveCity }: CitiesPageProps)
               <div className="mt-4 space-y-2">
                 <p className="text-sm text-muted-foreground">搜索结果：</p>
                 {searchResults.map((result) => {
-                  const pathParts = result.location.path.split(',')
                   const isAdded = cities.some(c => c.code === result.location.id)
 
                   return (
