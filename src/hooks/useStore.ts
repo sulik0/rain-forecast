@@ -179,7 +179,7 @@ export function useWeatherData(cities: City[], dataSources: DataSource[]) {
   const [weatherData, setWeatherData] = useState<Map<string, WeatherData[]>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [useRealApi, setUseRealApi] = useState(true) // 默认使用真实 API
+  const useRealApi = true // 默认使用真实 API
 
   const fetchWeatherData = useCallback(async () => {
     setLoading(true)

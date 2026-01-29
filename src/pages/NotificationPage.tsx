@@ -1,7 +1,9 @@
 import type { NotificationConfig, NotificationSchedule } from '@/types'
 import { cn } from '@/lib/utils'
-import { Bell, Clock, MessageSquare, AlertCircle, ExternalLink } from 'lucide-react'
+import { Bell, Clock, MessageSquare, AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
+import { sendTestNotification } from '@/lib/notification'
+import { useState } from 'react'
 
 interface NotificationPageProps {
   config: NotificationConfig
@@ -15,6 +17,7 @@ export function NotificationPage({
   onUpdateSchedule
 }: NotificationPageProps) {
   const { showToast } = useToast()
+  const [sending, setSending] = useState(false)
 
   const handleToggleMain = () => {
     onUpdateConfig({ enabled: !config.enabled })
@@ -32,12 +35,27 @@ export function NotificationPage({
     onUpdateConfig({ wechatPushToken: token })
   }
 
-  const handleTestNotification = () => {
+  const handleTestNotification = async () => {
     if (!config.wechatPushToken) {
       showToast('请先配置微信推送Token', 'warning')
       return
     }
-    showToast('测试通知已发送', 'success')
+
+    setSending(true)
+    try {
+      const result = await sendTestNotification(config.wechatPushToken)
+
+      if (result.success) {
+        showToast('✅ 测试通知发送成功！请检查微信', 'success')
+      } else {
+        showToast(`❌ 发送失败：${result.message}`, 'danger')
+      }
+    } catch (error) {
+      showToast('❌ 发送失败：网络错误', 'danger')
+      console.error('发送测试通知出错:', error)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -137,9 +155,17 @@ export function NotificationPage({
         <div className="flex items-center gap-4">
           <button
             onClick={handleTestNotification}
-            className="btn-secondary"
+            disabled={sending}
+            className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            发送测试通知
+            {sending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                发送中...
+              </>
+            ) : (
+              '发送测试通知'
+            )}
           </button>
           <a
             href="https://sct.ftqq.com/"

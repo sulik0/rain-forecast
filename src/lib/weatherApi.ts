@@ -5,7 +5,7 @@ const QWEATHER_API_BASE = 'https://devapi.qweather.com/v7'
 const QWEATHER_API_KEY = import.meta.env.VITE_QWEATHER_API_KEY
 
 // 和风天气 API 响应类型
-interface QWeatherResponse<T> {
+interface QWeatherResponse {
   code: string
   updateTime: string
   fxLink: string
@@ -21,7 +21,7 @@ interface QWeatherDaily {
   pop: string // 降水概率
 }
 
-interface QWeatherDailyResponse extends QWeatherResponse<QWeatherDaily[]> {
+interface QWeatherDailyResponse extends QWeatherResponse {
   daily: QWeatherDaily[]
 }
 
@@ -32,7 +32,7 @@ interface QWeatherNow {
   precip: string
 }
 
-interface QWeatherNowResponse extends QWeatherResponse<QWeatherNow> {
+interface QWeatherNowResponse extends QWeatherResponse {
   now: QWeatherNow
 }
 
@@ -105,7 +105,7 @@ export async function getWeatherNow(
 export function transformQWeatherData(
   cityName: string,
   dailyData: QWeatherDailyResponse,
-  nowData?: QWeatherNowResponse
+  _nowData?: QWeatherNowResponse
 ): WeatherData {
   const today = dailyData.daily[0]
 
@@ -147,7 +147,7 @@ export async function fetchCityWeather(
       return null
     }
 
-    return transformQWeatherData(cityName, dailyData, nowData)
+    return transformQWeatherData(cityName, dailyData, nowData ?? undefined)
   } catch (error) {
     console.error(`获取 ${cityName} 天气数据失败:`, error)
     return null
