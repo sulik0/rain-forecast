@@ -63,6 +63,13 @@
 
 详细说明：[定时通知功能文档](docs/SCHEDULER.md)
 
+### 24/7 后台推送（Vercel Cron）
+- 支持后台每日天气预报推送（无需打开网页）
+- 通过 Vercel Cron 调用 `/api/cron/forecast`
+- 可配置多次/多时段推送
+
+详细说明：[定时通知功能文档](docs/SCHEDULER.md)
+
 ### 预警历史 History
 - 自动记录所有预警事件
 - 显示触发时间、城市、概率值

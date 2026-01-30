@@ -166,6 +166,83 @@
    - 建议使用 Chrome/Edge 浏览器
    - 保持页面在前台或标签页激活状态
 
+---
+
+## 服务器定时推送（Vercel Cron，24/7）
+
+如果你需要 **24/7 后台推送**，可以使用 Vercel Cron 调用服务端接口发送每日天气预报。
+
+### 步骤 1：部署并添加 Cron
+
+项目已内置接口：
+
+```
+GET /api/cron/forecast
+```
+
+默认 Cron 配置在 `vercel.json`，示例为**工作日** 08:00 / 18:00 / 21:00 推送：
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/forecast?slot=morning", "schedule": "0 8 * * 1-5" },
+    { "path": "/api/cron/forecast?slot=evening", "schedule": "0 18 * * 1-5" },
+    { "path": "/api/cron/forecast?slot=night", "schedule": "0 21 * * 1-5" }
+  ]
+}
+```
+
+如需**一天多次**推送，添加多条 cron（不同 `slot`）即可。
+
+### 步骤 2：配置环境变量
+
+在 Vercel 项目的环境变量中设置：
+
+- `QWEATHER_API_KEY`：和风天气 API Key
+- `WECHAT_PUSH_TOKEN`：Server酱推送 Token
+- `FORECAST_DAYS`：推送天数（1/2/3，默认 3）
+- `FORECAST_CITIES`：可选，城市列表（格式见下）
+- `CRON_SECRET`：可选，若设置则接口需 `Authorization: Bearer <secret>`
+- `ADMIN_SECRET`：后台开关页面的口令（用于管理配置）
+- `FORECAST_SLOT_MORNING_ENABLED`：可选，开启/关闭早间推送（默认 true）
+- `FORECAST_SLOT_EVENING_ENABLED`：可选，开启/关闭晚间推送（默认 true）
+- `FORECAST_SLOT_NIGHT_ENABLED`：可选，开启/关闭夜间推送（默认 true）
+- `FORECAST_SLOT_MORNING_TARGET`：可选，`today`/`tomorrow`/`range`（默认 today）
+- `FORECAST_SLOT_EVENING_TARGET`：可选，`today`/`tomorrow`/`range`（默认 tomorrow）
+- `FORECAST_SLOT_NIGHT_TARGET`：可选，`today`/`tomorrow`/`range`（默认 tomorrow）
+
+若不显式设置目标：
+- `morning` 默认推送 **今天**
+- `evening` / `night` 默认推送 **明天**
+
+### 后台开关页面
+
+在「通知设置」页面底部，有“后台推送开关”区域：
+
+- 通过 `ADMIN_SECRET` 登录
+- 可开启/关闭后台推送总开关
+- 可分别控制早/晚推送的启用状态与目标日期
+
+配置保存后，会写入 Vercel KV 并在 Cron 调用时生效。
+
+可选去重（防重试重复发送）：
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+
+`FORECAST_CITIES` 支持两种格式：
+
+```
+[{"name":"北京","code":"101010100"},{"name":"上海","code":"101020100"}]
+```
+
+或
+
+```
+北京:101010100,上海:101020100
+```
+
+未设置时默认使用内置城市列表。
+
 ### 🔧 未来改进方向
 
 如果您需要更可靠的定时通知，可以考虑：

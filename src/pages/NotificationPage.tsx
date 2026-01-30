@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { Bell, Clock, MessageSquare, AlertCircle, ExternalLink, Loader2, CheckCircle } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import { sendTestNotification } from '@/lib/notification'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface NotificationPageProps {
   config: NotificationConfig
@@ -12,6 +12,22 @@ interface NotificationPageProps {
   nextNotificationTime?: Date | null
   timeRemaining?: string
   lastCheckTime?: Date | null
+}
+
+type RemoteTarget = 'today' | 'tomorrow' | 'range'
+
+interface RemoteSlotConfig {
+  enabled: boolean
+  target: RemoteTarget
+}
+
+interface RemoteConfig {
+  enabled: boolean
+  slots: {
+    morning: RemoteSlotConfig
+    evening: RemoteSlotConfig
+    night: RemoteSlotConfig
+  }
 }
 
 export function NotificationPage({
@@ -24,6 +40,10 @@ export function NotificationPage({
 }: NotificationPageProps) {
   const { showToast } = useToast()
   const [sending, setSending] = useState(false)
+  const [adminToken, setAdminToken] = useState('')
+  const [remoteConfig, setRemoteConfig] = useState<RemoteConfig | null>(null)
+  const [remoteLoading, setRemoteLoading] = useState(false)
+  const [remoteSaving, setRemoteSaving] = useState(false)
 
   const handleToggleMain = () => {
     onUpdateConfig({ enabled: !config.enabled })
@@ -64,6 +84,105 @@ export function NotificationPage({
       forecast: {
         ...config.forecast,
         days,
+      },
+    })
+  }
+
+  useEffect(() => {
+    const saved = localStorage.getItem('rain-admin-token')
+    if (saved) {
+      setAdminToken(saved)
+    }
+  }, [])
+
+  const loadRemoteConfig = async () => {
+    if (!adminToken) {
+      showToast('请先填写后台管理口令', 'warning')
+      return
+    }
+
+    setRemoteLoading(true)
+    try {
+      const response = await fetch('/api/cron/config', {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        showToast(data?.error || '获取配置失败', 'danger')
+        return
+      }
+      setRemoteConfig(data.config)
+      showToast('✅ 已加载后台配置', 'success')
+    } catch (error) {
+      console.error('加载后台配置失败:', error)
+      showToast('❌ 网络错误，无法加载后台配置', 'danger')
+    } finally {
+      setRemoteLoading(false)
+    }
+  }
+
+  const saveRemoteConfig = async () => {
+    if (!adminToken || !remoteConfig) {
+      showToast('请先加载后台配置', 'warning')
+      return
+    }
+
+    setRemoteSaving(true)
+    try {
+      const response = await fetch('/api/cron/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify(remoteConfig),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        showToast(data?.error || '保存配置失败', 'danger')
+        return
+      }
+      setRemoteConfig(data.config)
+      showToast('✅ 后台配置已保存', 'success')
+    } catch (error) {
+      console.error('保存后台配置失败:', error)
+      showToast('❌ 网络错误，无法保存后台配置', 'danger')
+    } finally {
+      setRemoteSaving(false)
+    }
+  }
+
+  const handleRemoteEnabled = () => {
+    if (!remoteConfig) return
+    setRemoteConfig({ ...remoteConfig, enabled: !remoteConfig.enabled })
+  }
+
+  const handleRemoteSlotEnabled = (slot: keyof RemoteConfig['slots']) => {
+    if (!remoteConfig) return
+    setRemoteConfig({
+      ...remoteConfig,
+      slots: {
+        ...remoteConfig.slots,
+        [slot]: {
+          ...remoteConfig.slots[slot],
+          enabled: !remoteConfig.slots[slot].enabled,
+        },
+      },
+    })
+  }
+
+  const handleRemoteSlotTarget = (slot: keyof RemoteConfig['slots'], target: RemoteTarget) => {
+    if (!remoteConfig) return
+    setRemoteConfig({
+      ...remoteConfig,
+      slots: {
+        ...remoteConfig.slots,
+        [slot]: {
+          ...remoteConfig.slots[slot],
+          target,
+        },
       },
     })
   }
@@ -365,6 +484,121 @@ export function NotificationPage({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 后台推送开关 */}
+      <div className="card mt-8 border-l-4 border-l-primary">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-primary-light" />
+          后台推送开关（Vercel Cron）
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          通过后台配置控制工作日早/晚推送（需要 ADMIN_SECRET 口令）
+        </p>
+
+        <div className="mb-4">
+          <label className="label">后台管理口令</label>
+          <input
+            type="password"
+            value={adminToken}
+            onChange={(e) => {
+              const value = e.target.value
+              setAdminToken(value)
+              localStorage.setItem('rain-admin-token', value)
+            }}
+            placeholder="输入 ADMIN_SECRET"
+            className="input"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-3 mb-6">
+          <button
+            onClick={loadRemoteConfig}
+            disabled={remoteLoading}
+            className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {remoteLoading ? '加载中...' : '加载后台配置'}
+          </button>
+          <button
+            onClick={saveRemoteConfig}
+            disabled={remoteSaving || !remoteConfig}
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {remoteSaving ? '保存中...' : '保存配置'}
+          </button>
+        </div>
+
+        {remoteConfig ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-foreground font-medium">后台推送总开关</p>
+                <p className="text-xs text-muted-foreground">关闭后所有后台推送暂停</p>
+              </div>
+              <button
+                onClick={handleRemoteEnabled}
+                className={cn(
+                  'relative w-12 h-6 rounded-full transition-colors',
+                  remoteConfig.enabled ? 'bg-primary' : 'bg-muted'
+                )}
+              >
+                <span
+                  className={cn(
+                    'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
+                    remoteConfig.enabled ? 'left-7' : 'left-1'
+                  )}
+                />
+              </button>
+            </div>
+
+            {(['morning', 'evening', 'night'] as const).map((slot) => (
+              <div
+                key={slot}
+                className="flex flex-col gap-2 border border-border rounded-xl p-4 bg-muted/20"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-foreground font-medium">
+                      {slot === 'morning' ? '早上 08:00' : slot === 'evening' ? '晚上 18:00' : '晚上 21:00'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      工作日定时推送
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoteSlotEnabled(slot)}
+                    className={cn(
+                      'relative w-12 h-6 rounded-full transition-colors',
+                      remoteConfig.slots[slot].enabled ? 'bg-primary' : 'bg-muted'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
+                        remoteConfig.slots[slot].enabled ? 'left-7' : 'left-1'
+                      )}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">推送内容：</span>
+                  <select
+                    value={remoteConfig.slots[slot].target}
+                    onChange={(e) => handleRemoteSlotTarget(slot, e.target.value as RemoteTarget)}
+                    className="input"
+                  >
+                    <option value="today">当天</option>
+                    <option value="tomorrow">第二天</option>
+                    <option value="range">未来 1-3 天</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">请先加载后台配置</p>
+        )}
       </div>
 
       {/* 部署说明 */}

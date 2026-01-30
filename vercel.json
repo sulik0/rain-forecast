@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/forecast?slot=morning",
+      "schedule": "0 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/forecast?slot=evening",
+      "schedule": "0 18 * * 1-5"
+    },
+    {
+      "path": "/api/cron/forecast?slot=night",
+      "schedule": "0 21 * * 1-5"
+    }
+  ]
+}
