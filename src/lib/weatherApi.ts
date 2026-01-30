@@ -7,7 +7,7 @@ const QWEATHER_API_KEY = import.meta.env.VITE_QWEATHER_API_KEY
 const QWEATHER_API_BASE = `https://${QWEATHER_API_HOST}/${QWEATHER_API_VERSION}`
 // GeoAPI 域名（城市查询使用独立域名和路径）
 const QWEATHER_GEO_HOST = import.meta.env.VITE_QWEATHER_GEO_HOST || 'geoapi.qweather.com'
-const QWEATHER_GEO_BASE = `https://${QWEATHER_GEO_HOST}/v2`
+const QWEATHER_GEO_BASE = `https://${QWEATHER_GEO_HOST}/geo/v2`
 
 // 和风天气 API 响应类型
 interface QWeatherResponse {
