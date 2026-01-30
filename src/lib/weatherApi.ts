@@ -13,7 +13,7 @@ interface QWeatherResponse {
   fxLink: string
 }
 
-interface QWeatherDaily {
+export interface QWeatherDaily {
   fxDate: string
   tempMax: string
   tempMin: string
@@ -23,7 +23,7 @@ interface QWeatherDaily {
   pop: string // 降水概率
 }
 
-interface QWeatherDailyResponse extends QWeatherResponse {
+export interface QWeatherDailyResponse extends QWeatherResponse {
   daily: QWeatherDaily[]
 }
 

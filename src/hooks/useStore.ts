@@ -10,6 +10,7 @@ import type {
 import { 
   DEFAULT_DATA_SOURCES, 
   DEFAULT_SCHEDULES, 
+  DEFAULT_FORECAST_SCHEDULE,
   PRESET_CITIES 
 } from '@/types'
 import { generateId } from '@/lib/utils'
@@ -99,12 +100,20 @@ export function useNotification() {
     const stored = localStorage.getItem(STORAGE_KEYS.notification)
     if (stored) {
       try {
-        return JSON.parse(stored)
+        const parsed = JSON.parse(stored)
+        return {
+          enabled: parsed.enabled ?? false,
+          wechatPushToken: parsed.wechatPushToken,
+          threshold: parsed.threshold ?? 50,
+          schedules: parsed.schedules ?? DEFAULT_SCHEDULES,
+          forecast: parsed.forecast ?? DEFAULT_FORECAST_SCHEDULE,
+        }
       } catch {
         return {
           enabled: false,
           threshold: 50,
           schedules: DEFAULT_SCHEDULES,
+          forecast: DEFAULT_FORECAST_SCHEDULE,
         }
       }
     }
@@ -112,6 +121,7 @@ export function useNotification() {
       enabled: false,
       threshold: 50,
       schedules: DEFAULT_SCHEDULES,
+      forecast: DEFAULT_FORECAST_SCHEDULE,
     }
   })
 

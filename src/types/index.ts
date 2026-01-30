@@ -50,6 +50,7 @@ export interface NotificationConfig {
   wechatPushToken?: string
   threshold: number
   schedules: NotificationSchedule[]
+  forecast: ForecastSchedule
 }
 
 // 通知时间表
@@ -59,6 +60,13 @@ export interface NotificationSchedule {
   targetDate: 'today' | 'tomorrow'
   enabled: boolean
   description: string
+}
+
+// 每日天气预报配置
+export interface ForecastSchedule {
+  enabled: boolean
+  time: string // HH:mm 格式
+  days: 1 | 2 | 3
 }
 
 // 应用配置
@@ -110,6 +118,13 @@ export const DEFAULT_SCHEDULES: NotificationSchedule[] = [
     description: '早上8点推送当日天气',
   },
 ]
+
+// 默认每日预报配置
+export const DEFAULT_FORECAST_SCHEDULE: ForecastSchedule = {
+  enabled: false,
+  time: '07:30',
+  days: 3,
+}
 
 // 预设城市列表
 export const PRESET_CITIES: City[] = [

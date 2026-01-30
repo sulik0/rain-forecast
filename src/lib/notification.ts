@@ -1,3 +1,5 @@
+import type { QWeatherDaily } from '@/lib/weatherApi'
+
 // Server酱 API 配置
 const SERVERCHAN_API_URL = 'https://sctapi.ftqq.com'
 
@@ -112,6 +114,38 @@ ${alertLevel} 风险等级
 时间：${new Date().toLocaleString('zh-CN')}
 
 请及时做好防雨准备！`
+  })
+}
+
+/**
+ * 发送每日天气预报通知
+ */
+export async function sendDailyForecastNotification(
+  token: string,
+  city: string,
+  daily: QWeatherDaily[],
+  updateTime: string,
+  days: 1 | 2 | 3
+): Promise<NotificationResult> {
+  const slices = daily.slice(0, days)
+  const lines = slices.map((item, index) => {
+    const label = index === 0 ? '今天' : index === 1 ? '明天' : '后天'
+    const rainProb = parseInt(item.pop) || 0
+    return `${label}：${item.textDay}，${item.tempMin}°~${item.tempMax}°，降雨概率 ${rainProb}%`
+  })
+
+  return sendNotification({
+    token,
+    title: `【每日天气预报】${city}`,
+    content: `天气预报
+
+📍 城市：${city}
+${lines.join('\n')}
+
+---
+数据更新时间：${updateTime}
+推送时间：${new Date().toLocaleString('zh-CN')}
+`
   })
 }
 

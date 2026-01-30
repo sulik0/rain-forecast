@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import type { City, NotificationConfig, WeatherData } from '@/types'
 import {
   checkAndSendNotifications,
+  checkAndSendForecastNotifications,
   getNextNotificationTime,
   formatTimeRemaining,
   getNotificationRecords,
@@ -49,27 +50,36 @@ export function useScheduler({
 
   // 执行通知检查
   const checkNotifications = useCallback(async () => {
-    if (!config.enabled || !config.wechatPushToken) return
+    if (!config.wechatPushToken) return
 
     try {
-      const records = await checkAndSendNotifications(
-        cities,
-        weatherDataMap,
-        config,
-        calculateWeightedProbability
-      )
+      const alertRecords = config.enabled
+        ? await checkAndSendNotifications(
+            cities,
+            weatherDataMap,
+            config,
+            calculateWeightedProbability
+          )
+        : []
+
+      const forecastRecords = config.forecast?.enabled
+        ? await checkAndSendForecastNotifications(cities, config)
+        : []
+
+      const records = [...alertRecords, ...forecastRecords]
 
       if (records.length > 0) {
         console.log(`✅ 发送了 ${records.length} 条通知`)
-        setLastCheckTime(new Date())
-
-        if (onNotificationSent) {
-          onNotificationSent(records)
-        }
-
-        // 刷新历史记录
-        loadNotificationHistory()
       }
+
+      setLastCheckTime(new Date())
+
+      if (records.length > 0 && onNotificationSent) {
+        onNotificationSent(records)
+      }
+
+      // 刷新历史记录
+      loadNotificationHistory()
 
       // 更新下次通知时间
       updateNextNotificationTime()
@@ -88,7 +98,8 @@ export function useScheduler({
 
   // 启动定时器
   useEffect(() => {
-    if (!config.enabled) {
+    const schedulerEnabled = config.enabled || config.forecast?.enabled
+    if (!schedulerEnabled) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
         intervalRef.current = null
@@ -112,7 +123,7 @@ export function useScheduler({
         clearInterval(intervalRef.current)
       }
     }
-  }, [config.enabled, checkNotifications, loadNotificationHistory])
+  }, [config.enabled, config.forecast?.enabled, checkNotifications, loadNotificationHistory])
 
   // 每秒更新剩余时间显示
   useEffect(() => {

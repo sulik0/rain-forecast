@@ -41,6 +41,33 @@ export function NotificationPage({
     onUpdateConfig({ wechatPushToken: token })
   }
 
+  const handleForecastEnabled = () => {
+    onUpdateConfig({
+      forecast: {
+        ...config.forecast,
+        enabled: !config.forecast.enabled,
+      },
+    })
+  }
+
+  const handleForecastTimeChange = (time: string) => {
+    onUpdateConfig({
+      forecast: {
+        ...config.forecast,
+        time,
+      },
+    })
+  }
+
+  const handleForecastDaysChange = (days: 1 | 2 | 3) => {
+    onUpdateConfig({
+      forecast: {
+        ...config.forecast,
+        days,
+      },
+    })
+  }
+
   const handleTestNotification = async () => {
     if (!config.wechatPushToken) {
       showToast('请先配置微信推送Token', 'warning')
@@ -279,6 +306,64 @@ export function NotificationPage({
               </button>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* 每日天气预报 */}
+      <div className="card mt-8">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Clock className="w-5 h-5 text-primary-light" />
+          每日天气预报
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          每天固定时间推送各城市天气预报（支持 1~3 天）
+        </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-foreground font-medium">启用每日预报</p>
+              <p className="text-xs text-muted-foreground">
+                需要配置微信推送 Token
+              </p>
+            </div>
+            <button
+              onClick={handleForecastEnabled}
+              className={cn(
+                'relative w-12 h-6 rounded-full transition-colors',
+                config.forecast.enabled ? 'bg-primary' : 'bg-muted'
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
+                  config.forecast.enabled ? 'left-7' : 'left-1'
+                )}
+              />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">推送时间</label>
+              <input
+                type="time"
+                value={config.forecast.time}
+                onChange={(e) => handleForecastTimeChange(e.target.value)}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="label">预报天数</label>
+              <select
+                value={String(config.forecast.days)}
+                onChange={(e) => handleForecastDaysChange(Number(e.target.value) as 1 | 2 | 3)}
+                className="input"
+              >
+                <option value="1">1 天</option>
+                <option value="2">2 天</option>
+                <option value="3">3 天</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 

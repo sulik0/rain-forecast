@@ -1,5 +1,12 @@
-import type { City, WeatherData, NotificationConfig, NotificationSchedule } from '@/types'
-import { sendRainAlertNotification } from './notification'
+import type {
+  City,
+  WeatherData,
+  NotificationConfig,
+  NotificationSchedule,
+  ForecastSchedule,
+} from '@/types'
+import { sendDailyForecastNotification, sendRainAlertNotification } from './notification'
+import { getWeatherForecast } from './weatherApi'
 
 const STORAGE_KEYS = {
   lastNotificationTime: 'rain-scheduler-last-time',
@@ -13,6 +20,7 @@ export interface NotificationRecord {
   timestamp: number
   sent: boolean
   message?: string
+  type?: 'alert' | 'forecast'
 }
 
 /**
@@ -49,6 +57,42 @@ export function shouldTriggerNotification(schedule: NotificationSchedule): boole
   }
 
   return true
+}
+
+/**
+ * 检查是否触发每日预报通知
+ */
+export function shouldTriggerForecast(schedule: ForecastSchedule): boolean {
+  if (!schedule.enabled) return false
+
+  const now = new Date()
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const [scheduleHour, scheduleMinute] = schedule.time.split(':').map(Number)
+  const [currentHour, currentMinute] = currentTime.split(':').map(Number)
+
+  const scheduleTotalMinutes = scheduleHour * 60 + scheduleMinute
+  const currentTotalMinutes = currentHour * 60 + currentMinute
+  const timeDiff = Math.abs(currentTotalMinutes - scheduleTotalMinutes)
+
+  if (timeDiff > 2) return false
+
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const lastSent = localStorage.getItem(`rain-forecast-${todayKey}`)
+
+  if (lastSent) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * 标记每日预报已发送
+ */
+export function markForecastSent(): void {
+  const now = new Date()
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  localStorage.setItem(`rain-forecast-${todayKey}`, String(now.getTime()))
 }
 
 /**
@@ -132,6 +176,7 @@ export async function checkAndSendNotifications(
           timestamp: now.getTime(),
           sent: result.success,
           message: result.message,
+          type: 'alert',
         })
 
         if (result.success) {
@@ -148,6 +193,78 @@ export async function checkAndSendNotifications(
 
   // 保存记录
   if (records.length > 0) {
+    saveNotificationRecords(records)
+  }
+
+  return records
+}
+
+/**
+ * 执行每日预报检查和发送
+ */
+export async function checkAndSendForecastNotifications(
+  cities: City[],
+  config: NotificationConfig
+): Promise<NotificationRecord[]> {
+  if (!config.wechatPushToken || !config.forecast?.enabled) {
+    return []
+  }
+
+  if (!shouldTriggerForecast(config.forecast)) {
+    return []
+  }
+
+  const records: NotificationRecord[] = []
+  const now = new Date()
+
+  for (const city of cities) {
+    try {
+      const forecast = await getWeatherForecast(city.code)
+      if (!forecast) {
+        records.push({
+          id: `forecast-${city.id}-${now.getTime()}`,
+          scheduleId: 'daily-forecast',
+          cityId: city.id,
+          timestamp: now.getTime(),
+          sent: false,
+          message: '获取天气预报失败',
+          type: 'forecast',
+        })
+        continue
+      }
+
+      const result = await sendDailyForecastNotification(
+        config.wechatPushToken,
+        city.name,
+        forecast.daily,
+        forecast.updateTime,
+        config.forecast.days
+      )
+
+      records.push({
+        id: `forecast-${city.id}-${now.getTime()}`,
+        scheduleId: 'daily-forecast',
+        cityId: city.id,
+        timestamp: now.getTime(),
+        sent: result.success,
+        message: result.message,
+        type: 'forecast',
+      })
+    } catch (error) {
+      records.push({
+        id: `forecast-${city.id}-${now.getTime()}`,
+        scheduleId: 'daily-forecast',
+        cityId: city.id,
+        timestamp: now.getTime(),
+        sent: false,
+        message: error instanceof Error ? error.message : '发送失败',
+        type: 'forecast',
+      })
+    }
+  }
+
+  if (records.some(r => r.sent)) {
+    markForecastSent()
     saveNotificationRecords(records)
   }
 
@@ -193,12 +310,15 @@ export function clearNotificationRecords(): void {
  * 获取下次通知时间
  */
 export function getNextNotificationTime(config: NotificationConfig): Date | null {
-  if (!config.enabled || config.schedules.length === 0) return null
+  const hasAlertSchedules = config.enabled && config.schedules.length > 0
+  const hasForecast = config.forecast?.enabled
+
+  if (!hasAlertSchedules && !hasForecast) return null
 
   const now = new Date()
-  const enabledSchedules = config.schedules.filter(s => s.enabled)
-
-  if (enabledSchedules.length === 0) return null
+  const enabledSchedules = config.enabled
+    ? config.schedules.filter(s => s.enabled)
+    : []
 
   // 找到下一个最近的定时任务
   let nextTime: Date | null = null
@@ -214,6 +334,20 @@ export function getNextNotificationTime(config: NotificationConfig): Date | null
       scheduleTime.setDate(scheduleTime.getDate() + 1)
     }
 
+    const diff = scheduleTime.getTime() - now.getTime()
+    if (diff < minDiff && diff > 0) {
+      minDiff = diff
+      nextTime = scheduleTime
+    }
+  }
+
+  if (hasForecast && config.forecast?.time) {
+    const [hour, minute] = config.forecast.time.split(':').map(Number)
+    const scheduleTime = new Date(now)
+    scheduleTime.setHours(hour, minute, 0, 0)
+    if (scheduleTime <= now) {
+      scheduleTime.setDate(scheduleTime.getDate() + 1)
+    }
     const diff = scheduleTime.getTime() - now.getTime()
     if (diff < minDiff && diff > 0) {
       minDiff = diff

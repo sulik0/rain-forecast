@@ -75,10 +75,13 @@ async function uploadDirectory(dirPath, ossPath = '') {
  */
 async function uploadFile(filePath, ossPath) {
   try {
+    // 读取文件内容
+    const content = readFileSync(filePath)
+
     // 根据文件扩展名设置 Content-Type
     const contentType = getContentType(filePath)
 
-    const result = await client.put(ossPath, filePath, {
+    const result = await client.put(ossPath, content, {
       headers: {
         'Content-Type': contentType,
       },
