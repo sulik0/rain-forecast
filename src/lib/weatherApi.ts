@@ -5,9 +5,9 @@ const QWEATHER_API_HOST = import.meta.env.VITE_QWEATHER_API_HOST || 'devapi.qwea
 const QWEATHER_API_VERSION = import.meta.env.VITE_QWEATHER_API_VERSION || 'v7'
 const QWEATHER_API_KEY = import.meta.env.VITE_QWEATHER_API_KEY
 const QWEATHER_API_BASE = `https://${QWEATHER_API_HOST}/${QWEATHER_API_VERSION}`
-// GeoAPI 域名（城市查询使用独立域名）
+// GeoAPI 域名（城市查询使用独立域名和路径）
 const QWEATHER_GEO_HOST = import.meta.env.VITE_QWEATHER_GEO_HOST || 'geoapi.qweather.com'
-const QWEATHER_GEO_BASE = `https://${QWEATHER_GEO_HOST}/${QWEATHER_API_VERSION}`
+const QWEATHER_GEO_BASE = `https://${QWEATHER_GEO_HOST}/v2`
 
 // 和风天气 API 响应类型
 interface QWeatherResponse {
@@ -229,21 +229,26 @@ export async function fetchCityWeather(
 }
 
 /**
- * 城市查询结果类型
+ * 城市查询结果类型（和风天气 GeoAPI 返回格式）
  */
 export interface CityLookupResult {
   location: {
-    id: string // 城市代码
-    name: string
-    country: string
-    path: string // 完整路径，如 "北京,北京,中国"
-    lat: string
-    lon: string
+    id: string       // 城市ID
+    name: string     // 城市名称
+    lat: string      // 纬度
+    lon: string      // 经度
+    adm2: string     // 上级行政区划
+    adm1: string     // 一级行政区域（省/市）
+    country: string  // 国家
+    tz: string       // 时区
+    type: string     // 属性类型
+    rank: string     // 地区评分
+    fxLink: string   // 天气预报网页链接
   }
 }
 
 /**
- * 查询城市（支持城市名称、拼音、IP）
+ * 查询城市（支持城市名称、拼音、经纬度）
  * API 文档: https://dev.qweather.com/docs/api/geoapi/city-lookup/
  */
 export async function lookupCity(cityName: string): Promise<CityLookupResult[] | null> {
@@ -254,10 +259,10 @@ export async function lookupCity(cityName: string): Promise<CityLookupResult[] |
 
   try {
     const response = await fetchWithRetry(
-      `${QWEATHER_GEO_BASE}/city/lookup?location=${encodeURIComponent(cityName)}`,
+      `${QWEATHER_GEO_BASE}/city/lookup?location=${encodeURIComponent(cityName)}&range=cn&number=10`,
       {
         headers: {
-          'X-QW-Api-Key': QWEATHER_API_KEY,
+          'Authorization': `Bearer ${QWEATHER_API_KEY}`,
           'Accept-Encoding': 'gzip',
         },
       }
@@ -275,7 +280,12 @@ export async function lookupCity(cityName: string): Promise<CityLookupResult[] |
       return null
     }
 
-    return data.location || []
+    // 转换为统一格式
+    const results: CityLookupResult[] = (data.location || []).map((loc: CityLookupResult['location']) => ({
+      location: loc
+    }))
+
+    return results
   } catch (error) {
     console.error('查询城市失败:', error)
     return null

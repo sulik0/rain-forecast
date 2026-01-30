@@ -57,12 +57,11 @@ export function CitiesPage({ cities, onAddCity, onRemoveCity }: CitiesPageProps)
         return
       }
 
-      // 过滤掉中国的下级区县，只显示地级市以上
+      // 过滤只保留地级市以上（根据 rank 评分，rank 越小级别越高）
       const filtered = results.filter(r => {
-        const path = r.location.path
-        const parts = path.split(',')
-        // 只保留2-3级的行政区划（省、市）
-        return parts.length <= 3
+        const rank = parseInt(r.location.rank) || 99
+        // rank <= 25 通常为地级市及以上
+        return rank <= 25
       })
 
       setSearchResults(filtered)
@@ -77,13 +76,11 @@ export function CitiesPage({ cities, onAddCity, onRemoveCity }: CitiesPageProps)
 
   // 添加搜索结果中的城市
   const handleAddSearchResult = (result: CityLookupResult) => {
-    const pathParts = result.location.path.split(',')
-
     const city: City = {
       id: generateId(),
       name: result.location.name,
       code: result.location.id,
-      province: pathParts.length >= 2 ? pathParts[pathParts.length - 2] : '未知'
+      province: result.location.adm1 || result.location.country
     }
 
     // 检查是否已存在
@@ -209,7 +206,9 @@ export function CitiesPage({ cities, onAddCity, onRemoveCity }: CitiesPageProps)
                           {result.location.name}
                           {isAdded && <span className="ml-2 text-xs text-success">已添加</span>}
                         </p>
-                        <p className="text-xs text-muted-foreground">{result.location.path}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {result.location.adm1}{result.location.adm2 ? ` / ${result.location.adm2}` : ''} / {result.location.country}
+                        </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           代码: {result.location.id}
                         </p>
