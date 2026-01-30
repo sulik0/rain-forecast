@@ -5,6 +5,9 @@ const QWEATHER_API_HOST = import.meta.env.VITE_QWEATHER_API_HOST || 'devapi.qwea
 const QWEATHER_API_VERSION = import.meta.env.VITE_QWEATHER_API_VERSION || 'v7'
 const QWEATHER_API_KEY = import.meta.env.VITE_QWEATHER_API_KEY
 const QWEATHER_API_BASE = `https://${QWEATHER_API_HOST}/${QWEATHER_API_VERSION}`
+// GeoAPI 域名（城市查询使用独立域名）
+const QWEATHER_GEO_HOST = import.meta.env.VITE_QWEATHER_GEO_HOST || 'geoapi.qweather.com'
+const QWEATHER_GEO_BASE = `https://${QWEATHER_GEO_HOST}/${QWEATHER_API_VERSION}`
 
 // 和风天气 API 响应类型
 interface QWeatherResponse {
@@ -251,7 +254,7 @@ export async function lookupCity(cityName: string): Promise<CityLookupResult[] |
 
   try {
     const response = await fetchWithRetry(
-      `${QWEATHER_API_BASE}/city/lookup?location=${encodeURIComponent(cityName)}`,
+      `${QWEATHER_GEO_BASE}/city/lookup?location=${encodeURIComponent(cityName)}`,
       {
         headers: {
           'X-QW-Api-Key': QWEATHER_API_KEY,
