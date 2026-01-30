@@ -243,8 +243,8 @@ export function useWeatherData(cities: City[], dataSources: DataSource[]) {
                 updatedAt: new Date(),
               })
             }
-          } else if (source.id === 'cma') {
-            // 中国气象局数据源（目前使用模拟数据，未来可接入真实 API）
+          } else if (source.id === 'cma' || source.id === 'accuweather' || source.id === 'owm') {
+            // 其他数据源（目前使用模拟数据，未来可接入真实 API）
             const mockProbability = Math.floor(Math.random() * 100)
             cityData.push({
               source: source.id,

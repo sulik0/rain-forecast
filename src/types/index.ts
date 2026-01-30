@@ -1,5 +1,5 @@
 // 数据源类型
-export type DataSourceType = 'cma' | 'qweather'
+export type DataSourceType = 'cma' | 'qweather' | 'accuweather' | 'owm'
 
 // 数据源信息
 export interface DataSource {
@@ -82,14 +82,28 @@ export const DEFAULT_DATA_SOURCES: DataSource[] = [
     id: 'cma',
     name: '中国气象局',
     description: '国家官方气象数据源，准确度高',
-    weight: 0.6,
+    weight: 0.4,
     enabled: true,
   },
   {
     id: 'qweather',
     name: '和风天气',
     description: '商业天气API，更新频率高',
-    weight: 0.4,
+    weight: 0.3,
+    enabled: true,
+  },
+  {
+    id: 'accuweather',
+    name: 'AccuWeather',
+    description: '国际知名天气服务商，专业预报',
+    weight: 0.15,
+    enabled: true,
+  },
+  {
+    id: 'owm',
+    name: 'OpenWeather',
+    description: '全球天气数据接口，开源友好',
+    weight: 0.15,
     enabled: true,
   },
 ]

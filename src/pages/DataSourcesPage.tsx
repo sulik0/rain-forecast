@@ -164,6 +164,7 @@ export function DataSourcesPage({
             <ul className="text-sm text-muted-foreground mt-2 space-y-1">
               <li>• 中国气象局: 需申请官方数据接口权限</li>
               <li>• 和风天气: 注册获取 API Key (有免费额度)</li>
+              <li>• AccuWeather / OpenWeather: 需申请对应的开发者密钥</li>
             </ul>
           </div>
         </div>
