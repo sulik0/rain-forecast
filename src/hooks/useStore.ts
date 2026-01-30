@@ -189,7 +189,6 @@ export function useWeatherData(cities: City[], dataSources: DataSource[]) {
   const [weatherData, setWeatherData] = useState<Map<string, WeatherData[]>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const useRealApi = true // 默认使用真实 API
 
   const fetchWeatherData = useCallback(async () => {
     setLoading(true)
@@ -203,62 +202,23 @@ export function useWeatherData(cities: City[], dataSources: DataSource[]) {
         const cityData: WeatherData[] = []
 
         for (const source of enabledSources) {
-          if (source.id === 'qweather' && useRealApi) {
+          if (source.id === 'qweather') {
             // 使用真实的和风天气 API
             try {
               const realData = await fetchCityWeather(city.name, city.code)
               if (realData) {
                 cityData.push(realData)
               } else {
-                // API 调用失败，使用备用数据
-                console.warn(`获取 ${city.name} 的真实天气数据失败，使用备用数据`)
-                const mockProbability = Math.floor(Math.random() * 100)
-                cityData.push({
-                  source: source.id,
-                  city: city.name,
-                  date: new Date(),
-                  rainProbability: mockProbability,
-                  temperature: {
-                    min: Math.floor(Math.random() * 10) + 5,
-                    max: Math.floor(Math.random() * 15) + 15,
-                  },
-                  weather: mockProbability > 50 ? '有雨' : '晴转多云',
-                  updatedAt: new Date(),
-                })
+                console.warn(`获取 ${city.name} 的和风天气数据失败`)
+                // 不添加数据，UI 会显示暂无数据
               }
             } catch (err) {
               console.error(`获取 ${city.name} 天气数据出错:`, err)
-              // API 调用出错，使用备用数据
-              const mockProbability = Math.floor(Math.random() * 100)
-              cityData.push({
-                source: source.id,
-                city: city.name,
-                date: new Date(),
-                rainProbability: mockProbability,
-                temperature: {
-                  min: Math.floor(Math.random() * 10) + 5,
-                  max: Math.floor(Math.random() * 15) + 15,
-                },
-                weather: mockProbability > 50 ? '有雨' : '晴转多云',
-                updatedAt: new Date(),
-              })
+              // 不添加数据，UI 会显示暂无数据
             }
-          } else if (source.id === 'cma' || source.id === 'accuweather' || source.id === 'owm') {
-            // 其他数据源（目前使用模拟数据，未来可接入真实 API）
-            const mockProbability = Math.floor(Math.random() * 100)
-            cityData.push({
-              source: source.id,
-              city: city.name,
-              date: new Date(),
-              rainProbability: mockProbability,
-              temperature: {
-                min: Math.floor(Math.random() * 10) + 5,
-                max: Math.floor(Math.random() * 15) + 15,
-              },
-              weather: mockProbability > 50 ? '有雨' : '晴转多云',
-              updatedAt: new Date(),
-            })
           }
+          // 其他数据源（cma, accuweather, owm）暂未接入真实 API，不返回数据
+          // 未来可在此处添加对应的 API 调用逻辑
         }
 
         newData.set(city.id, cityData)
@@ -271,7 +231,7 @@ export function useWeatherData(cities: City[], dataSources: DataSource[]) {
     } finally {
       setLoading(false)
     }
-  }, [cities, dataSources, useRealApi])
+  }, [cities, dataSources])
 
   // 计算加权概率
   const calculateWeightedProbability = useCallback((cityId: string): number => {

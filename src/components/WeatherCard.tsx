@@ -52,7 +52,7 @@ export function WeatherCard({
         <div>
           <p className="text-sm text-muted-foreground mb-1">综合降雨概率</p>
           <div className={probabilityClass}>
-            {weatherData.length > 0 ? `${weightedProbability}%` : '--'}
+            {weatherData.length > 0 ? `${weightedProbability}%` : '暂无数据'}
           </div>
         </div>
         <div className="relative">
@@ -88,7 +88,7 @@ export function WeatherCard({
                 'text-sm font-medium',
                 data ? getRainLevelClass(data.rainProbability) : 'text-muted-foreground'
               )}>
-                {data ? `${data.rainProbability}%` : '--'}
+                {data ? `${data.rainProbability}%` : '暂无数据，待添加'}
               </span>
             </div>
           )
