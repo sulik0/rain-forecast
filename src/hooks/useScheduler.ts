@@ -10,6 +10,7 @@ import {
 } from '@/lib/scheduler'
 
 interface UseSchedulerOptions {
+  userId?: string
   cities: City[]
   weatherDataMap: Map<string, WeatherData[]>
   config: NotificationConfig
@@ -18,6 +19,7 @@ interface UseSchedulerOptions {
 }
 
 export function useScheduler({
+  userId,
   cities,
   weatherDataMap,
   config,
@@ -44,9 +46,9 @@ export function useScheduler({
 
   // 加载通知历史
   const loadNotificationHistory = useCallback(() => {
-    const records = getNotificationRecords()
+    const records = getNotificationRecords(userId)
     setNotificationHistory(records)
-  }, [])
+  }, [userId])
 
   // 执行通知检查
   const checkNotifications = useCallback(async () => {
@@ -58,12 +60,13 @@ export function useScheduler({
             cities,
             weatherDataMap,
             config,
-            calculateWeightedProbability
+            calculateWeightedProbability,
+            userId
           )
         : []
 
       const forecastRecords = config.forecast?.enabled
-        ? await checkAndSendForecastNotifications(cities, config)
+        ? await checkAndSendForecastNotifications(cities, config, userId)
         : []
 
       const records = [...alertRecords, ...forecastRecords]
@@ -91,6 +94,7 @@ export function useScheduler({
     weatherDataMap,
     config,
     calculateWeightedProbability,
+    userId,
     onNotificationSent,
     updateNextNotificationTime,
     loadNotificationHistory,

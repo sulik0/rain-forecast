@@ -13,6 +13,27 @@ const STORAGE_KEYS = {
   notificationHistory: 'rain-scheduler-history',
 }
 
+function getScopedKey(userId: string | undefined, key: string) {
+  if (!userId) return key
+  return `rain-alert-user:${userId}:${key}`
+}
+
+function readScopedValue(userId: string | undefined, key: string) {
+  const scopedKey = getScopedKey(userId, key)
+  const stored = localStorage.getItem(scopedKey)
+  if (stored) return { key: scopedKey, value: stored }
+
+  if (userId) {
+    const legacy = localStorage.getItem(key)
+    if (legacy) {
+      localStorage.setItem(scopedKey, legacy)
+      return { key: scopedKey, value: legacy }
+    }
+  }
+
+  return { key: scopedKey, value: null }
+}
+
 export interface NotificationRecord {
   id: string
   scheduleId: string
@@ -26,7 +47,7 @@ export interface NotificationRecord {
 /**
  * 检查当前时间是否匹配通知时间表
  */
-export function shouldTriggerNotification(schedule: NotificationSchedule): boolean {
+export function shouldTriggerNotification(schedule: NotificationSchedule, userId?: string): boolean {
   if (!schedule.enabled) return false
 
   const now = new Date()
@@ -47,7 +68,7 @@ export function shouldTriggerNotification(schedule: NotificationSchedule): boole
 
   // 检查是否已经发送过通知
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${schedule.id}`
-  const lastSent = localStorage.getItem(`rain-scheduler-${todayKey}`)
+  const { value: lastSent } = readScopedValue(userId, `rain-scheduler-${todayKey}`)
 
   if (lastSent) {
     const lastSentTime = parseInt(lastSent)
@@ -62,7 +83,7 @@ export function shouldTriggerNotification(schedule: NotificationSchedule): boole
 /**
  * 检查是否触发每日预报通知
  */
-export function shouldTriggerForecast(schedule: ForecastSchedule): boolean {
+export function shouldTriggerForecast(schedule: ForecastSchedule, userId?: string): boolean {
   if (!schedule.enabled) return false
 
   const now = new Date()
@@ -77,7 +98,7 @@ export function shouldTriggerForecast(schedule: ForecastSchedule): boolean {
   if (timeDiff > 2) return false
 
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const lastSent = localStorage.getItem(`rain-forecast-${todayKey}`)
+  const { value: lastSent } = readScopedValue(userId, `rain-forecast-${todayKey}`)
 
   if (lastSent) {
     return false
@@ -89,19 +110,19 @@ export function shouldTriggerForecast(schedule: ForecastSchedule): boolean {
 /**
  * 标记每日预报已发送
  */
-export function markForecastSent(): void {
+export function markForecastSent(userId?: string): void {
   const now = new Date()
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  localStorage.setItem(`rain-forecast-${todayKey}`, String(now.getTime()))
+  localStorage.setItem(getScopedKey(userId, `rain-forecast-${todayKey}`), String(now.getTime()))
 }
 
 /**
  * 标记通知已发送
  */
-export function markNotificationSent(scheduleId: string): void {
+export function markNotificationSent(scheduleId: string, userId?: string): void {
   const now = new Date()
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${scheduleId}`
-  localStorage.setItem(`rain-scheduler-${todayKey}`, String(now.getTime()))
+  localStorage.setItem(getScopedKey(userId, `rain-scheduler-${todayKey}`), String(now.getTime()))
 }
 
 /**
@@ -141,7 +162,8 @@ export async function checkAndSendNotifications(
   cities: City[],
   weatherDataMap: Map<string, WeatherData[]>,
   config: NotificationConfig,
-  calculateWeightedProbability: (cityId: string) => number
+  calculateWeightedProbability: (cityId: string) => number,
+  userId?: string
 ): Promise<NotificationRecord[]> {
   if (!config.enabled || !config.wechatPushToken) {
     return []
@@ -151,7 +173,7 @@ export async function checkAndSendNotifications(
   const now = new Date()
 
   for (const schedule of config.schedules) {
-    if (!shouldTriggerNotification(schedule)) continue
+    if (!shouldTriggerNotification(schedule, userId)) continue
 
     let sentCount = 0
 
@@ -187,13 +209,13 @@ export async function checkAndSendNotifications(
 
     // 标记该时间表已处理
     if (sentCount > 0) {
-      markNotificationSent(schedule.id)
+      markNotificationSent(schedule.id, userId)
     }
   }
 
   // 保存记录
   if (records.length > 0) {
-    saveNotificationRecords(records)
+    saveNotificationRecords(records, userId)
   }
 
   return records
@@ -204,13 +226,14 @@ export async function checkAndSendNotifications(
  */
 export async function checkAndSendForecastNotifications(
   cities: City[],
-  config: NotificationConfig
+  config: NotificationConfig,
+  userId?: string
 ): Promise<NotificationRecord[]> {
   if (!config.wechatPushToken || !config.forecast?.enabled) {
     return []
   }
 
-  if (!shouldTriggerForecast(config.forecast)) {
+  if (!shouldTriggerForecast(config.forecast, userId)) {
     return []
   }
 
@@ -264,8 +287,8 @@ export async function checkAndSendForecastNotifications(
   }
 
   if (records.some(r => r.sent)) {
-    markForecastSent()
-    saveNotificationRecords(records)
+    markForecastSent(userId)
+    saveNotificationRecords(records, userId)
   }
 
   return records
@@ -274,11 +297,14 @@ export async function checkAndSendForecastNotifications(
 /**
  * 保存通知记录
  */
-function saveNotificationRecords(records: NotificationRecord[]): void {
+function saveNotificationRecords(records: NotificationRecord[], userId?: string): void {
   try {
-    const existing = getNotificationRecords()
+    const existing = getNotificationRecords(userId)
     const updated = [...records, ...existing].slice(0, 100) // 保留最近100条
-    localStorage.setItem(STORAGE_KEYS.notificationHistory, JSON.stringify(updated))
+    localStorage.setItem(
+      getScopedKey(userId, STORAGE_KEYS.notificationHistory),
+      JSON.stringify(updated)
+    )
   } catch (error) {
     console.error('保存通知记录失败:', error)
   }
@@ -287,9 +313,9 @@ function saveNotificationRecords(records: NotificationRecord[]): void {
 /**
  * 获取通知记录
  */
-export function getNotificationRecords(): NotificationRecord[] {
+export function getNotificationRecords(userId?: string): NotificationRecord[] {
   try {
-    const stored = localStorage.getItem(STORAGE_KEYS.notificationHistory)
+    const { value: stored } = readScopedValue(userId, STORAGE_KEYS.notificationHistory)
     if (!stored) return []
 
     return JSON.parse(stored)
@@ -302,8 +328,8 @@ export function getNotificationRecords(): NotificationRecord[] {
 /**
  * 清空通知记录
  */
-export function clearNotificationRecords(): void {
-  localStorage.removeItem(STORAGE_KEYS.notificationHistory)
+export function clearNotificationRecords(userId?: string): void {
+  localStorage.removeItem(getScopedKey(userId, STORAGE_KEYS.notificationHistory))
 }
 
 /**

@@ -7,7 +7,9 @@ import { CitiesPage } from '@/pages/CitiesPage'
 import { DataSourcesPage } from '@/pages/DataSourcesPage'
 import { NotificationPage } from '@/pages/NotificationPage'
 import { HistoryPage } from '@/pages/HistoryPage'
+import { LoginPage } from '@/pages/LoginPage'
 import { useScheduler } from '@/hooks/useScheduler'
+import { useAuth, type UserAccount } from '@/hooks/useAuth'
 import {
   useCities,
   useDataSources,
@@ -16,13 +18,19 @@ import {
   useWeatherData
 } from '@/hooks/useStore'
 
-function AppContent() {
+function AuthenticatedApp({
+  currentUser,
+  onLogout,
+}: {
+  currentUser: UserAccount
+  onLogout: () => void
+}) {
   const [currentPage, setCurrentPage] = useState('dashboard')
 
-  const { cities, addCity, removeCity } = useCities()
-  const { dataSources, updateSource, normalizeWeights } = useDataSources()
-  const { config, updateConfig, updateSchedule } = useNotification()
-  const { alerts, clearAlerts } = useAlertHistory()
+  const { cities, addCity, removeCity } = useCities(currentUser.id)
+  const { dataSources, updateSource, normalizeWeights } = useDataSources(currentUser.id)
+  const { config, updateConfig, updateSchedule } = useNotification(currentUser.id)
+  const { alerts, clearAlerts } = useAlertHistory(currentUser.id)
   const {
     weatherData,
     loading,
@@ -36,6 +44,7 @@ function AppContent() {
     timeRemaining,
     lastCheckTime,
   } = useScheduler({
+    userId: currentUser.id,
     cities,
     weatherDataMap: weatherData,
     config,
@@ -98,13 +107,37 @@ function AppContent() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+      <Sidebar
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        currentUserName={currentUser.name}
+        onLogout={onLogout}
+      />
       <main className="flex-1 overflow-auto">
         {renderPage()}
       </main>
       <ToastContainer />
     </div>
   )
+}
+
+function AppContent() {
+  const { users, currentUser, loginUser, registerUser, logout } = useAuth()
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-background">
+        <LoginPage
+          users={users}
+          onLogin={loginUser}
+          onRegister={registerUser}
+        />
+        <ToastContainer />
+      </div>
+    )
+  }
+
+  return <AuthenticatedApp currentUser={currentUser} onLogout={logout} />
 }
 
 function App() {

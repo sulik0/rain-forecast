@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { 
   City, 
   DataSource, 
@@ -16,30 +16,80 @@ import {
 import { generateId } from '@/lib/utils'
 import { fetchCityWeather } from '@/lib/weatherApi'
 
-const STORAGE_KEYS = {
+const LEGACY_KEYS = {
   cities: 'rain-alert-cities',
   dataSources: 'rain-alert-sources',
   notification: 'rain-alert-notification',
   alerts: 'rain-alert-history',
 }
 
+const USER_STORAGE_PREFIX = 'rain-alert-user'
+const LEGACY_OWNER_KEY = 'rain-alert-legacy-owner'
+
+type StorageKey = keyof typeof LEGACY_KEYS
+
+function getUserStorageKey(userId: string, key: StorageKey) {
+  return `${USER_STORAGE_PREFIX}:${userId}:${key}`
+}
+
+function readUserStorage(userId: string, key: StorageKey) {
+  const userKey = getUserStorageKey(userId, key)
+  const stored = localStorage.getItem(userKey)
+  if (stored) {
+    return { raw: stored, userKey }
+  }
+
+  const legacy = localStorage.getItem(LEGACY_KEYS[key])
+  if (!legacy) {
+    return { raw: null, userKey }
+  }
+
+  const legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY)
+  if (legacyOwner && legacyOwner !== userId) {
+    return { raw: null, userKey }
+  }
+
+  if (!legacyOwner) {
+    localStorage.setItem(LEGACY_OWNER_KEY, userId)
+  }
+
+  localStorage.setItem(userKey, legacy)
+  return { raw: legacy, userKey }
+}
+
 // 城市管理 Hook
-export function useCities() {
+export function useCities(userId: string) {
   const [cities, setCities] = useState<City[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.cities)
-    if (stored) {
+    const { raw } = readUserStorage(userId, 'cities')
+    if (raw) {
       try {
-        return JSON.parse(stored)
+        return JSON.parse(raw)
       } catch {
-        return [PRESET_CITIES[0]] // 默认北京
+        return [PRESET_CITIES[0]]
       }
     }
     return [PRESET_CITIES[0]]
   })
+  const loadedUserIdRef = useRef(userId)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.cities, JSON.stringify(cities))
-  }, [cities])
+    const { raw } = readUserStorage(userId, 'cities')
+    if (raw) {
+      try {
+        setCities(JSON.parse(raw))
+      } catch {
+        setCities([PRESET_CITIES[0]])
+      }
+    } else {
+      setCities([PRESET_CITIES[0]])
+    }
+    loadedUserIdRef.current = userId
+  }, [userId])
+
+  useEffect(() => {
+    if (loadedUserIdRef.current !== userId) return
+    localStorage.setItem(getUserStorageKey(userId, 'cities'), JSON.stringify(cities))
+  }, [cities, userId])
 
   const addCity = useCallback((city: City) => {
     setCities(prev => {
@@ -56,22 +106,38 @@ export function useCities() {
 }
 
 // 数据源管理 Hook
-export function useDataSources() {
+export function useDataSources(userId: string) {
   const [dataSources, setDataSources] = useState<DataSource[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.dataSources)
-    if (stored) {
+    const { raw } = readUserStorage(userId, 'dataSources')
+    if (raw) {
       try {
-        return JSON.parse(stored)
+        return JSON.parse(raw)
       } catch {
         return DEFAULT_DATA_SOURCES
       }
     }
     return DEFAULT_DATA_SOURCES
   })
+  const loadedUserIdRef = useRef(userId)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.dataSources, JSON.stringify(dataSources))
-  }, [dataSources])
+    const { raw } = readUserStorage(userId, 'dataSources')
+    if (raw) {
+      try {
+        setDataSources(JSON.parse(raw))
+      } catch {
+        setDataSources(DEFAULT_DATA_SOURCES)
+      }
+    } else {
+      setDataSources(DEFAULT_DATA_SOURCES)
+    }
+    loadedUserIdRef.current = userId
+  }, [userId])
+
+  useEffect(() => {
+    if (loadedUserIdRef.current !== userId) return
+    localStorage.setItem(getUserStorageKey(userId, 'dataSources'), JSON.stringify(dataSources))
+  }, [dataSources, userId])
 
   const updateSource = useCallback((id: string, updates: Partial<DataSource>) => {
     setDataSources(prev => 
@@ -95,12 +161,12 @@ export function useDataSources() {
 }
 
 // 通知配置 Hook
-export function useNotification() {
+export function useNotification(userId: string) {
   const [config, setConfig] = useState<NotificationConfig>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.notification)
-    if (stored) {
+    const { raw } = readUserStorage(userId, 'notification')
+    if (raw) {
       try {
-        const parsed = JSON.parse(stored)
+        const parsed = JSON.parse(raw)
         return {
           enabled: parsed.enabled ?? false,
           wechatPushToken: parsed.wechatPushToken,
@@ -124,10 +190,43 @@ export function useNotification() {
       forecast: DEFAULT_FORECAST_SCHEDULE,
     }
   })
+  const loadedUserIdRef = useRef(userId)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.notification, JSON.stringify(config))
-  }, [config])
+    const { raw } = readUserStorage(userId, 'notification')
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw)
+        setConfig({
+          enabled: parsed.enabled ?? false,
+          wechatPushToken: parsed.wechatPushToken,
+          threshold: parsed.threshold ?? 50,
+          schedules: parsed.schedules ?? DEFAULT_SCHEDULES,
+          forecast: parsed.forecast ?? DEFAULT_FORECAST_SCHEDULE,
+        })
+      } catch {
+        setConfig({
+          enabled: false,
+          threshold: 50,
+          schedules: DEFAULT_SCHEDULES,
+          forecast: DEFAULT_FORECAST_SCHEDULE,
+        })
+      }
+    } else {
+      setConfig({
+        enabled: false,
+        threshold: 50,
+        schedules: DEFAULT_SCHEDULES,
+        forecast: DEFAULT_FORECAST_SCHEDULE,
+      })
+    }
+    loadedUserIdRef.current = userId
+  }, [userId])
+
+  useEffect(() => {
+    if (loadedUserIdRef.current !== userId) return
+    localStorage.setItem(getUserStorageKey(userId, 'notification'), JSON.stringify(config))
+  }, [config, userId])
 
   const updateConfig = useCallback((updates: Partial<NotificationConfig>) => {
     setConfig(prev => ({ ...prev, ...updates }))
@@ -146,12 +245,12 @@ export function useNotification() {
 }
 
 // 预警历史 Hook
-export function useAlertHistory() {
+export function useAlertHistory(userId: string) {
   const [alerts, setAlerts] = useState<RainAlert[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.alerts)
-    if (stored) {
+    const { raw } = readUserStorage(userId, 'alerts')
+    if (raw) {
       try {
-        const parsed = JSON.parse(stored)
+        const parsed = JSON.parse(raw)
         return parsed.map((a: RainAlert) => ({
           ...a,
           date: new Date(a.date),
@@ -163,10 +262,31 @@ export function useAlertHistory() {
     }
     return []
   })
+  const loadedUserIdRef = useRef(userId)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.alerts, JSON.stringify(alerts))
-  }, [alerts])
+    const { raw } = readUserStorage(userId, 'alerts')
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw)
+        setAlerts(parsed.map((a: RainAlert) => ({
+          ...a,
+          date: new Date(a.date),
+          createdAt: new Date(a.createdAt),
+        })))
+      } catch {
+        setAlerts([])
+      }
+    } else {
+      setAlerts([])
+    }
+    loadedUserIdRef.current = userId
+  }, [userId])
+
+  useEffect(() => {
+    if (loadedUserIdRef.current !== userId) return
+    localStorage.setItem(getUserStorageKey(userId, 'alerts'), JSON.stringify(alerts))
+  }, [alerts, userId])
 
   const addAlert = useCallback((alert: Omit<RainAlert, 'id' | 'createdAt'>) => {
     const newAlert: RainAlert = {

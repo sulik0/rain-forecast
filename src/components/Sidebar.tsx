@@ -11,6 +11,8 @@ import {
 interface SidebarProps {
   currentPage: string
   onPageChange: (page: string) => void
+  currentUserName: string
+  onLogout: () => void
 }
 
 const navItems = [
@@ -21,7 +23,7 @@ const navItems = [
   { id: 'history', label: '预警历史', icon: History },
 ]
 
-export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
+export function Sidebar({ currentPage, onPageChange, currentUserName, onLogout }: SidebarProps) {
   return (
     <aside className="w-64 h-screen bg-card/50 border-r border-border flex flex-col">
       {/* Logo */}
@@ -59,6 +61,16 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
 
       {/* Footer */}
       <div className="p-4 border-t border-border">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>当前用户</span>
+          <span className="font-medium text-foreground">{currentUserName}</span>
+        </div>
+        <button
+          onClick={onLogout}
+          className="btn-ghost w-full mt-3 text-xs"
+        >
+          退出登录
+        </button>
         <div className="text-xs text-muted-foreground text-center">
           <p>多数据源智能预警</p>
           <p className="mt-1">v1.0.0</p>
