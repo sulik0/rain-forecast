@@ -106,38 +106,59 @@ export function useCities(userId: string) {
 }
 
 // 数据源管理 Hook
-export function useDataSources(userId: string) {
+export function useDataSources(userId?: string) {
   const [dataSources, setDataSources] = useState<DataSource[]>(() => {
-    const { raw } = readUserStorage(userId, 'dataSources')
-    if (raw) {
+    const stored = localStorage.getItem(LEGACY_KEYS.dataSources)
+    if (stored) {
       try {
-        return JSON.parse(raw)
+        return JSON.parse(stored)
       } catch {
         return DEFAULT_DATA_SOURCES
       }
     }
+    if (userId) {
+      const scoped = localStorage.getItem(getUserStorageKey(userId, 'dataSources'))
+      if (scoped) {
+        try {
+          const parsed = JSON.parse(scoped)
+          localStorage.setItem(LEGACY_KEYS.dataSources, scoped)
+          return parsed
+        } catch {
+          return DEFAULT_DATA_SOURCES
+        }
+      }
+    }
     return DEFAULT_DATA_SOURCES
   })
-  const loadedUserIdRef = useRef(userId)
 
   useEffect(() => {
-    const { raw } = readUserStorage(userId, 'dataSources')
-    if (raw) {
+    const stored = localStorage.getItem(LEGACY_KEYS.dataSources)
+    if (stored) {
       try {
-        setDataSources(JSON.parse(raw))
+        setDataSources(JSON.parse(stored))
+        return
       } catch {
         setDataSources(DEFAULT_DATA_SOURCES)
       }
-    } else {
-      setDataSources(DEFAULT_DATA_SOURCES)
     }
-    loadedUserIdRef.current = userId
+    if (userId) {
+      const scoped = localStorage.getItem(getUserStorageKey(userId, 'dataSources'))
+      if (scoped) {
+        try {
+          const parsed = JSON.parse(scoped)
+          localStorage.setItem(LEGACY_KEYS.dataSources, scoped)
+          setDataSources(parsed)
+          return
+        } catch {
+          setDataSources(DEFAULT_DATA_SOURCES)
+        }
+      }
+    }
   }, [userId])
 
   useEffect(() => {
-    if (loadedUserIdRef.current !== userId) return
-    localStorage.setItem(getUserStorageKey(userId, 'dataSources'), JSON.stringify(dataSources))
-  }, [dataSources, userId])
+    localStorage.setItem(LEGACY_KEYS.dataSources, JSON.stringify(dataSources))
+  }, [dataSources])
 
   const updateSource = useCallback((id: string, updates: Partial<DataSource>) => {
     setDataSources(prev => 
